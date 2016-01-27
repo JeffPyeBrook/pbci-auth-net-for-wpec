@@ -59,33 +59,49 @@ class WPSC_Payment_Gateway_Authorize_Net_Gateway extends WPSC_Payment_Gateway {
 	 */
 	public function __construct( $options ) {
 		parent::__construct();
-		$this->title = __( 'Authorize.Net by Pye Brook Company, Inc.', 'wp-e-commerce' );
-		add_action( 'wpsc_before_shipping_of_shopping_cart', array( $this, 'checkout_form' ) );
+		$this->title = __( 'Authorize.Net Credit Card Gateway by Pye Brook Company, Inc.', 'wp-e-commerce' );
+		//add_action( 'wpsc_before_shipping_of_shopping_cart', array( &$this, 'checkout_form' ) );
+		add_filter( $s = 'wpsc_gateway_checkout_form_' . $this->gateway_name(), array(
+			&$this,
+			'gateway_checkout_form_filter'
+		), 10, 1 );
 
 		if ( defined( 'AUTHORIZENET_API_LOGIN_ID' ) ) {
-			$this->api_login_id = AUTHORIZENET_API_LOGIN_ID;
+			$this->api_login_id            = AUTHORIZENET_API_LOGIN_ID;
 			$this->api_login_id_can_change = false;
 		} else {
-			$this->api_login_id = $this->setting->get( 'api_login_id' );
+			$this->api_login_id            = $this->setting->get( 'api_login_id' );
 			$this->api_login_id_can_change = true;
 		}
 
 		if ( defined( 'AUTHORIZENET_TRANSACTION_KEY' ) ) {
-			$this->api_transaction_key = AUTHORIZENET_TRANSACTION_KEY;
+			$this->api_transaction_key            = AUTHORIZENET_TRANSACTION_KEY;
 			$this->api_transaction_key_can_change = false;
 		} else {
-			$this->api_transaction_key = $this->setting->get( 'api_transaction_key' );
+			$this->api_transaction_key            = $this->setting->get( 'api_transaction_key' );
 			$this->api_transaction_key_can_change = true;
 		}
 
 		if ( defined( 'AUTHORIZENET_SANDBOX' ) ) {
-			$this->sandbox_mode = (bool)AUTHORIZENET_SANDBOX;
+			$this->sandbox_mode            = (bool) AUTHORIZENET_SANDBOX;
 			$this->sandbox_mode_can_change = false;
 		} else {
-			$this->sandbox_mode = (bool)$this->setting->get( 'sandbox_mode' );
+			$this->sandbox_mode            = (bool) $this->setting->get( 'sandbox_mode' );
 			$this->sandbox_mode_can_change = true;
 		}
+	}
 
+	public function gateway_checkout_form_filter( $output ) {
+		$checkOrCC = $this->CreditCardForm();
+		$form      = <<<EOT
+<tr>
+	<td colspan='2'>
+		{$checkOrCC}
+	</td>
+</tr>
+EOT;
+
+		return $form;
 	}
 
 	public function gateway_name() {
@@ -228,78 +244,97 @@ EOF;
 	public function setup_form() {
 		error_log( __FUNCTION__ );
 		?>
-<tr>
-    <td colspan="2">
-        <h4><?php _e( 'Authorize.net Credentials' ); ?></h4>
-    </td>
-</tr>
-<tr>
-    <td>
-        <label for="auth-net-settings-api-login-id"><?php _e( 'API Login ID' ); ?></label>
-    </td>
-    <td>
-	    <?php if ( $this->api_login_id_can_change ) { ?>
-            <input type="text" name="<?php echo esc_attr( $this->setting->get_field_name( 'api_login_id' ) ); ?>" value="<?php echo esc_attr( $this->setting->get( 'api_login_id' ) ); ?>" id="auth-net-settings-api-login-id" />
-		<?php } else { ?>
-		    <i>Login ID already set in wp-config.php, not changeable here</i>
-		<?php } ?>
-    </td>
-</tr>
-<tr>
-    <td>
-        <label for="auth-net-settings-api-transaction-key"><?php _e( 'API Transaction Key' ); ?></label>
-    </td>
-    <td>
-	    <?php if ( $this->api_transaction_key_can_change ) { ?>
-		    <input type="text" name="<?php echo esc_attr( $this->setting->get_field_name( 'api_transaction_key' ) ); ?>" value="<?php echo esc_attr( $this->setting->get( 'api_transaction_key' ) ); ?>" id="auth-net-settings-api-transaction-key" />
-	    <?php } else { ?>
-		    <i>API Transaction already key set in wp-config.php, not changeable here</i>
-	    <?php } ?>
-    </td>
-</tr>
-<tr>
-    <td>
-        <label><?php _e( 'Test (Sandbox) Mode', 'wp-e-commerce' ); ?></label>
-    </td>
-    <td>
-	    <?php if ( $this->sandbox_mode_can_change ) { ?>
-		    <label><input <?php checked( $this->setting->get( 'sandbox_mode' ) ); ?> type="radio" name="<?php echo esc_attr( $this->setting->get_field_name( 'sandbox_mode' ) ); ?>" value="1" /> <?php _e( 'Yes', 'wp-e-commerce' ); ?></label>&nbsp;&nbsp;&nbsp;
-		    <label><input <?php checked( (bool) $this->setting->get( 'sandbox_mode' ), false ); ?> type="radio" name="<?php echo esc_attr( $this->setting->get_field_name( 'sandbox_mode' ) ); ?>" value="0" /> <?php _e( 'No', 'wp-e-commerce' ); ?></label>
-	    <?php } else { ?>
-		    <i>Test (Sandbox) mode already set in wp-config.php, not changeable here</i>
-	    <?php } ?>
-    </td>
-</tr>
+		<tr>
+			<td colspan="2">
+				<h4><?php _e( 'Authorize.net Credentials' ); ?></h4>
+			</td>
+		</tr>
+		<tr>
+			<td>
+				<label for="auth-net-settings-api-login-id"><?php _e( 'API Login ID' ); ?></label>
+			</td>
+			<td>
+				<?php if ( $this->api_login_id_can_change ) { ?>
+					<input type="text"
+					       name="<?php echo esc_attr( $this->setting->get_field_name( 'api_login_id' ) ); ?>"
+					       value="<?php echo esc_attr( $this->setting->get( 'api_login_id' ) ); ?>"
+					       id="auth-net-settings-api-login-id"/>
+				<?php } else { ?>
+					<i>Login ID already set in wp-config.php, it cannot be changed or viewed here</i>
+				<?php } ?>
+			</td>
+		</tr>
+		<tr>
+			<td>
+				<label for="auth-net-settings-api-transaction-key"><?php _e( 'API Transaction Key' ); ?></label>
+			</td>
+			<td>
+				<?php if ( $this->api_transaction_key_can_change ) { ?>
+					<input type="text"
+					       name="<?php echo esc_attr( $this->setting->get_field_name( 'api_transaction_key' ) ); ?>"
+					       value="<?php echo esc_attr( $this->setting->get( 'api_transaction_key' ) ); ?>"
+					       id="auth-net-settings-api-transaction-key"/>
+				<?php } else { ?>
+					<i>API Transaction already key set in wp-config.php, it cannot be changed or viewed here</i>
+				<?php } ?>
+			</td>
+		</tr>
+		<tr>
+			<td>
+				<label><?php _e( 'Test (Sandbox) Mode', 'wp-e-commerce' ); ?></label>
+			</td>
+			<td>
+				<?php if ( $this->sandbox_mode_can_change ) { ?>
+					<label><input <?php checked( $this->setting->get( 'sandbox_mode' ) ); ?> type="radio"
+					                                                                         name="<?php echo esc_attr( $this->setting->get_field_name( 'sandbox_mode' ) ); ?>"
+					                                                                         value="1"/> <?php _e( 'Yes', 'wp-e-commerce' ); ?>
+					</label>&nbsp;&nbsp;&nbsp;
+					<label><input <?php checked( (bool) $this->setting->get( 'sandbox_mode' ), false ); ?> type="radio"
+					                                                                                       name="<?php echo esc_attr( $this->setting->get_field_name( 'sandbox_mode' ) ); ?>"
+					                                                                                       value="0"/> <?php _e( 'No', 'wp-e-commerce' ); ?>
+					</label>
+				<?php } else { ?>
+					<i>Test (Sandbox) mode already set in wp-config.php, it cannot be changed or viewed here</i>
+				<?php } ?>
+			</td>
+		</tr>
 
 		<tr>
-		<td colspan="2">
-		<p>
-		<h3><?php _e( 'Instructions' ); ?></h3>
-		<div>
-			<p>
-				The most secure way to configure the authorize.net payment gateway is to define the <code>api login id</code> and <code>api transaction key</code>
-				in your <code>wp-config.php</code> file.</p><br>
+			<td colspan="2">
+				<p>
+				<h3><?php _e( 'Instructions' ); ?></h3>
+				<div>
+					<p>
+						The most secure way to configure the authorize.net payment gateway is to define the <code>api
+							login id</code> and <code>api transaction key</code>
+						in your <code>wp-config.php</code> file.</p><br>
 
-			<h4>WARNING</h4>
-			<p>If you enter the values here they are visible to any person who might have access to your adminstrative interface. Bad things can happen if the
-				authorize.net credential information is exposed to the wrong person.</p>
-				<p>One risk is a bad actor could use your charge account without your knowledge, taking money from people and perhaps
-				sending it to themselves.</p>
-				<p>Another risk is that a bad actor could easily change the credentials so that they fool you into thinking that they have completed payments when those payments
-				never happend. Uou would then ship products to the bad actor without receiving the promised funds.</p><br>
+					<h4>WARNING</h4>
+					<p>If you enter the values here they are visible to any person who might have access to your
+						adminstrative interface. Bad things can happen if the
+						authorize.net credential information is exposed to the wrong person.</p>
+					<p>One risk is a bad actor could use your charge account without your knowledge, taking money from
+						people and perhaps
+						sending it to themselves.</p>
+					<p>Another risk is that a bad actor could easily change the credentials so that they fool you into
+						thinking that they have completed payments when those payments
+						never happend. Uou would then ship products to the bad actor without receiving the promised
+						funds.</p><br>
 
-			Create the settings for the authorize net service similiar to this:<br>
+					Create the settings for the authorize net service similiar to this:<br>
 <pre>
 define ( 'AUTHORIZENET_API_LOGIN_ID', '73rhks93hb' );
 define ( 'AUTHORIZENET_TRANSACTION_KEY', '4FM3xH4938439fzd8z' );
 define ( 'AUTHORIZENET_SANDBOX', false );
 </pre>
-<br>
-<p>For support or enhancement requests see our web site at <a href="http://www.pyebrook.com">pyebrook.com</a></p>
-<p>Check out our collection of WP-eCommerce plugins at <a href="http://pyebrook.com/store/">pyebrook.com/store/</a></p>
-</div>
-</td>
-</tr>
+					<br>
+					<p>For support or enhancement requests see our web site at <a href="http://www.pyebrook.com">pyebrook.com</a>
+					</p>
+					<p>Check out our collection of WP-eCommerce plugins at <a href="http://pyebrook.com/store/">pyebrook.com/store/</a>
+					</p>
+				</div>
+			</td>
+		</tr>
 
 		<?php
 	}
@@ -318,6 +353,7 @@ define ( 'AUTHORIZENET_SANDBOX', false );
 
 		if ( $this->charge_credit_card() ) {
 			error_log( __FUNCTION__ . ' fake transaction complete success' );
+			$this->go_to_transaction_results();
 		} else {
 			error_log( __FUNCTION__ . ' fake transaction complete failure' );
 		}
@@ -454,7 +490,7 @@ define ( 'AUTHORIZENET_SANDBOX', false );
 			$response = $controller->executeWithApiResponse( \net\authorize\api\constants\ANetEnvironment::PRODUCTION );
 		}
 
-		$result     = false;
+		$result = false;
 
 		if ( $response != null ) {
 			$tresponse = $response->getTransactionResponse();
@@ -468,10 +504,12 @@ define ( 'AUTHORIZENET_SANDBOX', false );
 					$result = true;
 				} elseif ( ( $tresponse->getResponseCode() == "2" ) ) {
 					// 2 = Declined
-					$this->set_purchaselog_status( WPSC_Purchase_Log::ACCEPTED_PAYMENT );
+					$this->set_purchaselog_status( WPSC_Purchase_Log::INCOMPLETE_SALE );
+					$result = true;
 				} elseif ( ( $tresponse->getResponseCode() == "3" ) ) {
 					// 3 = Error
 					$this->set_purchaselog_status( WPSC_Purchase_Log::INCOMPLETE_SALE );
+					$result = false;
 				} elseif ( ( $tresponse->getResponseCode() == "4" ) ) {
 					// 4 = Held for Review
 					$this->set_purchaselog_status( WPSC_Purchase_Log::ORDER_RECEIVED );
@@ -482,6 +520,15 @@ define ( 'AUTHORIZENET_SANDBOX', false );
 				}
 
 				wpsc_update_purchase_meta( $this->invoice_number, 'pbci_auth_net_raw_response', $tresponse );
+
+				$messages = wpsc_get_customer_meta( 'checkout_misc_error_messages' );
+				if ( ! is_array( $messages ) ) {
+					$messages = array();
+				}
+
+				$error_messages = $response->getMessages();
+				$messages = array_merge( $messages, $error_messages );
+				wpsc_update_customer_meta( 'checkout_misc_error_messages', $messages );
 
 				$this->purchase_log->set( 'transactid', $tresponse->getTransId() );
 				$this->purchase_log->set( 'authcode', $tresponse->getAuthCode() );
@@ -494,32 +541,20 @@ define ( 'AUTHORIZENET_SANDBOX', false );
 			error_log( __FUNCTION__ . ' ' . "Charge Credit card Null response returned" );
 		}
 
+		$this->purchase_log->save();
+
 		return $result;
 	}
 
-	private function wpsc_instantiate_purchaselogitem( $purchase_log_id = false ) {
-		global $purchlogitem;
-
-		if ( empty( $purchase_log_id ) ) {
-			if ( isset( $_REQUEST['purchaselog_id'] ) ) {
-				$purchase_log_id = intval( $_REQUEST['purchaselog_id'] );
-			}
-		}
-
-		if ( ! empty( $purchase_log_id ) ) {
-			$purchlogitem = new wpsc_purchaselogs_items( (int) $purchase_log_id );
-		}
-
-	}
-
 	private function force_two_decimals( $amount ) {
-		$amount = round( (float)$amount, 2 );
+		$amount = round( (float) $amount, 2 );
+
 		return $amount;
 	}
 
 	private function set_purchaselog_status( $status ) {
-		//$this->purchase_log->set( 'processed', WPSC_Purchase_Log::INCOMPLETE_SALE );
-		error_log( __FUNCTION__ . ' fake setting purchase log status to ' . $status );
+		$this->purchase_log->set( 'processed', $status );
+
 		return $this;
 	}
 }
