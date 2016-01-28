@@ -35,9 +35,7 @@ use net\authorize\api\controller as AnetController;
 
 class WPSC_Payment_Gateway_Authorize_Net_Gateway extends WPSC_Payment_Gateway {
 
-	private $use_production = false;
-
-	private $name_on_card = '';
+//	private $name_on_card = '';
 	private $card_number = '';
 	private $expiration_month = '';
 	private $expiration_year = '';
@@ -55,16 +53,16 @@ class WPSC_Payment_Gateway_Authorize_Net_Gateway extends WPSC_Payment_Gateway {
 	 * Constructor
 	 *
 	 * @access public
-	 * @since 3.9
 	 */
 	public function __construct( $options ) {
 		parent::__construct();
-		$this->title = __( 'Authorize.Net Credit Card Gateway by Pye Brook Company, Inc.', 'wp-e-commerce' );
+		$this->title = __( 'Credit Card', PBCI_AUTHNET );
 		//add_action( 'wpsc_before_shipping_of_shopping_cart', array( &$this, 'checkout_form' ) );
-		add_filter( $s = 'wpsc_gateway_checkout_form_' . $this->gateway_name(), array(
-			&$this,
-			'gateway_checkout_form_filter'
-		), 10, 1 );
+		add_filter(
+			'wpsc_gateway_checkout_form_' . $this->gateway_name(),
+			array( &$this, 'gateway_checkout_form_filter'),
+			10,
+			1 );
 
 		if ( defined( 'AUTHORIZENET_API_LOGIN_ID' ) ) {
 			$this->api_login_id            = AUTHORIZENET_API_LOGIN_ID;
@@ -89,6 +87,20 @@ class WPSC_Payment_Gateway_Authorize_Net_Gateway extends WPSC_Payment_Gateway {
 			$this->sandbox_mode            = (bool) $this->setting->get( 'sandbox_mode' );
 			$this->sandbox_mode_can_change = true;
 		}
+
+		if ( isset( $_REQUEST['auth_net'] ) ) {
+			$card_data = $_REQUEST['auth_net'];
+
+			// $this->name_on_card           = $card_data['name_on_card'];
+			$this->card_number            = $this->digits_and_spaces_only( $card_data['card_number'] );
+			$this->expiration_month       = $this->digits_and_spaces_only( $card_data['expiry']['month'] );
+			$this->expiration_year        = $this->digits_and_spaces_only( $card_data['expiry']['year'] );
+			$this->card_verification_code = $this->digits_and_spaces_only( $card_data['card_code'] );
+		}
+	}
+
+	private function digits_and_spaces_only( $string ) {
+		return preg_replace("/[^[:digit:][:space:]]/u", '', $string );
 	}
 
 	public function gateway_checkout_form_filter( $output ) {
@@ -131,26 +143,17 @@ EOT;
 		$curryear       = date( 'Y' );
 
 		//generate year options
-		for ( $i = 0; $i < 10; $i ++ ) {
+		for ( $i = 0; $i < 12; $i ++ ) {
 			$years .= "<option value='" . $curryear . "'>" . $curryear . "</option>\r\n";
 			$curryear ++;
 		}
-		if ( isset( $_REQUEST['auth_net']['creditCard'] ) ) {
-			$auth_net = $_REQUEST['auth_net']['creditCard'];
-		} else {
-			$auth_net = array(
-				'name_on_card' => '',
-				'card_number'  => '',
-				'expiry'       => array( 'month' => '', 'year' => '' )
-			);
-		}
+
 		if ( isset( $auth_net['expiry']['month'] ) && $auth_net['expiry']['month'] > 0 ) {
-			$selected_month = "<option value='{$auth_net['expiry']['month']}' selected>{$auth_net['expiry']['month']}</option>\n";
-			$selected_year  = "<option value='{$auth_net['expiry']['year']}' selected>{$auth_net['expiry']['year']}</option>\n";
+			$selected_month = "<option value='{$this->expiration_month}' selected>{$this->expiration_month}</option>\n";
+			$selected_year  = "<option value='{$this->expiration_year}' selected>{$this->expiration_year}</option>\n";
 		}
 
 		$creditCardFormText = array(
-			'appears-on-card-text'     => __( 'Name as It Appears on Card *', PBCI_AUTHNET ),
 			'credit-card-number-text'  => __( 'Credit Card Number *', PBCI_AUTHNET ),
 			'credit-card-expires-text' => __( 'Expiration *', PBCI_AUTHNET ),
 			'cvv-text'                 => __( 'CVV *', PBCI_AUTHNET ),
@@ -173,21 +176,15 @@ EOT;
 		<input type='hidden' name='payType' id='payType'  value='creditCardForms'>
 		<table border='0'>
 		<tr>
-			<td class='wpsc_CC_details'>{$creditCardFormText['appears-on-card-text']}</td>
-			<td>
-				<input type='text' value='{$auth_net['name_on_card']}' name='auth_net[creditCard][name_on_card]' class='authNetPaymentInput' style="width:100%;" />
-			</td>
-		</tr>
-		<tr>
 			<td class='wpsc_CC_details'>{$creditCardFormText['credit-card-number-text']}</td>
 			<td>
-				<input type='text' value='{$auth_net['card_number']}' name='auth_net[creditCard][card_number]' class='authNetPaymentInput' />
+				<input type='text' value='{$this->card_number}' name='auth_net[card_number]' class='authNetPaymentInput' />
 			</td>
 		</tr>
 		<tr>
 			<td class='wpsc_CC_details'>{$creditCardFormText['credit-card-expires-text']}</td>
 			<td>
-				<select class='wpsc_ccBox authNetPaymentInput' name='auth_net[creditCard][expiry][month]' >
+				<select class='wpsc_ccBox authNetPaymentInput' name='auth_net[expiry][month]' >
 				" . $months . "
 				{$selected_month}
 				<option value='01'>{$creditCardFormText['01']}</option>
@@ -203,7 +200,7 @@ EOT;
 				<option value='11'>{$creditCardFormText['11']}</option>
 				<option value='12'>{$creditCardFormText['12']}</option>
 				</select>
-				<select class='wpsc_ccBox authNetPaymentInput' name='auth_net[creditCard][expiry][year]' >
+				<select class='wpsc_ccBox authNetPaymentInput' name='auth_net[expiry][year]' >
 				{$selected_year}
 				" . $years . "
 				</select>
@@ -211,7 +208,7 @@ EOT;
 		</tr>
 		<tr>
 			<td class='wpsc_CC_details'>{$creditCardFormText['cvv-text']}</td>
-			<td><input type='text' size='4' value='' maxlength='4' name='auth_net[creditCard][card_code]' class='authNetPaymentInput'/>
+			<td><input type='text' size='4' value='' maxlength='4' name='auth_net[card_code]' class='authNetPaymentInput'/>
 			</td>
 		</tr>
 		</table>
@@ -233,7 +230,6 @@ EOF;
 	 * Displays the setup form
 	 *
 	 * @access public
-	 * @since 3.9
 	 * @uses WPSC_Checkout_Form::get()
 	 * @uses WPSC_Checkout_Form::field_drop_down_options()
 	 * @uses WPSC_Checkout_Form::get_field_id_by_unique_name()
@@ -341,21 +337,12 @@ define ( 'AUTHORIZENET_SANDBOX', false );
 
 	public function process() {
 
-		$card_data = $_REQUEST['auth_net']['creditCard'];
-
-		$this->name_on_card           = $card_data['name_on_card'];
-		$this->card_number            = $card_data['card_number'];
-		$this->expiration_month       = $card_data['expiry']['month'];
-		$this->expiration_year        = $card_data['expiry']['year'];
-		$this->card_verification_code = $card_data['card_code'];
-
 		$this->invoice_number = $this->purchase_log->get( 'id' );
 
 		if ( $this->charge_credit_card() ) {
-			error_log( __FUNCTION__ . ' fake transaction complete success' );
 			$this->go_to_transaction_results();
 		} else {
-			error_log( __FUNCTION__ . ' fake transaction complete failure' );
+			error_log( __CLASS__ . '::' . __FUNCTION__  . ' Authnet transaction failure' );
 		}
 	}
 
@@ -365,8 +352,6 @@ define ( 'AUTHORIZENET_SANDBOX', false );
 
 
 	private function charge_credit_card() {
-
-		$wpsc_checkout_form_data = $this->checkout_data->get_gateway_data();
 
 		// Common setup for API credentials
 		$merchantAuthentication = new AnetAPI\MerchantAuthenticationType();
@@ -415,7 +400,7 @@ define ( 'AUTHORIZENET_SANDBOX', false );
 		// Tax info
 		$tax = new AnetAPI\ExtendedAmountType();
 		$tax->setName( "Sales Tax" );
-		$tax->setAmount( $this->force_two_decimals( $s = $this->purchase_log->get( 'wpec_taxes_total' ) ) );
+		$tax->setAmount( $this->force_two_decimals( $this->purchase_log->get( 'wpec_taxes_total' ) ) );
 		$tax->setDescription( "Sales Tax" );
 
 		// Customer info
@@ -432,25 +417,25 @@ define ( 'AUTHORIZENET_SANDBOX', false );
 
 		//Ship To Info
 		$shipto = new AnetAPI\NameAndAddressType();
-		$shipto->setFirstName( $s = $this->checkout_data->get( 'shippingfirstname' ) );
-		$shipto->setLastName( $s = $this->checkout_data->get( 'shippinglastname' ) );
-//		$shipto->setCompany( $s = $this->checkout_data->get( 'shippingcompany') );
-		$shipto->setAddress( $s = $this->checkout_data->get( 'shippingaddress' ) );
-		$shipto->setCity( $s = $this->checkout_data->get( 'shippingcity' ) );
-		$shipto->setState( $s = $this->checkout_data->get( 'shippingstate' ) );
-		$shipto->setZip( $s = $this->checkout_data->get( 'shippingpostcode' ) );
-		$shipto->setCountry( $s = $this->checkout_data->get( 'shippingcountry' ) );
+		$shipto->setFirstName( $this->checkout_data->get( 'shippingfirstname' ) );
+		$shipto->setLastName( $this->checkout_data->get( 'shippinglastname' ) );
+//		$shipto->setCompany( $this->checkout_data->get( 'shippingcompany') );
+		$shipto->setAddress( $this->checkout_data->get( 'shippingaddress' ) );
+		$shipto->setCity( $this->checkout_data->get( 'shippingcity' ) );
+		$shipto->setState( $this->checkout_data->get( 'shippingstate' ) );
+		$shipto->setZip( $this->checkout_data->get( 'shippingpostcode' ) );
+		$shipto->setCountry( $this->checkout_data->get( 'shippingcountry' ) );
 
 		// Bill To
 		$billto = new AnetAPI\CustomerAddressType();
-		$billto->setFirstName( $s = $this->checkout_data->get( 'billingfirstname' ) );
-		$billto->setLastName( $s = $this->checkout_data->get( 'billinglastname' ) );
-//		$billto->setCompany(  $s = $this->checkout_data->get( 'billingcompany') );
-		$billto->setAddress( $s = $this->checkout_data->get( 'billingaddress' ) );
-		$billto->setCity( $s = $this->checkout_data->get( 'billingcity' ) );
-		$billto->setState( $s = $this->checkout_data->get( 'billingstate' ) );
-		$billto->setZip( $s = $this->checkout_data->get( 'billingpostcode' ) );
-		$billto->setCountry( $s = $this->checkout_data->get( 'billingcountry' ) );
+		$billto->setFirstName( $this->checkout_data->get( 'billingfirstname' ) );
+		$billto->setLastName( $this->checkout_data->get( 'billinglastname' ) );
+//		$billto->setCompany(  $this->checkout_data->get( 'billingcompany') );
+		$billto->setAddress( $this->checkout_data->get( 'billingaddress' ) );
+		$billto->setCity( $this->checkout_data->get( 'billingcity' ) );
+		$billto->setState( $this->checkout_data->get( 'billingstate' ) );
+		$billto->setZip( $this->checkout_data->get( 'billingpostcode' ) );
+		$billto->setCountry( $this->checkout_data->get( 'billingcountry' ) );
 		$billto->setPhoneNumber( $this->checkout_data->get( 'billingphone' ) );
 
 		//create a transaction
@@ -461,7 +446,7 @@ define ( 'AUTHORIZENET_SANDBOX', false );
 		}
 
 		$transactionRequestType->setTransactionType( "authCaptureTransaction" );
-		$transactionRequestType->setAmount( $this->force_two_decimals( $s = $this->purchase_log->get( 'totalprice' ) ) );
+		$transactionRequestType->setAmount( $this->force_two_decimals( $this->purchase_log->get( 'totalprice' ) ) );
 		$transactionRequestType->setTax( $tax );
 		$transactionRequestType->setPayment( $paymentOne );
 		$transactionRequestType->setOrder( $order );
@@ -517,6 +502,7 @@ define ( 'AUTHORIZENET_SANDBOX', false );
 				} else {
 					// Unknown transaction code
 					$this->set_purchaselog_status( WPSC_Purchase_Log::INCOMPLETE_SALE );
+					error_log( __CLASS__ . '::' . __FUNCTION__ . ' ' . "ERROR: Charge Credit Card ERROR : Unknown transaction response code" );
 				}
 
 				wpsc_update_purchase_meta( $this->invoice_number, 'pbci_auth_net_raw_response', $tresponse );
@@ -526,19 +512,38 @@ define ( 'AUTHORIZENET_SANDBOX', false );
 					$messages = array();
 				}
 
-				$error_messages = $response->getMessages();
-				$messages = array_merge( $messages, $error_messages );
+				// get the transaction error messages
+				$transaction_error_messages = $response->getMessages();
+				if ( $transaction_error_messages ) {
+					$transaction_error_messages = $transaction_error_messages->getMessage();
+				}
+
+				if ( ! is_array( $transaction_error_messages ) ) {
+					$transaction_error_messages = array( $transaction_error_messages );
+		        }
+
+				foreach ( $transaction_error_messages as $error_message ) {
+					$messages[] = $error_message->getText();
+				}
+
+				// get the transaction response error messages
+				$transaction_errors = $tresponse->getErrors();
+
+				foreach ( $transaction_errors as $transaction_error ) {
+					$messages[] = $transaction_error->getErrorText();
+				}
+
 				wpsc_update_customer_meta( 'checkout_misc_error_messages', $messages );
 
 				$this->purchase_log->set( 'transactid', $tresponse->getTransId() );
 				$this->purchase_log->set( 'authcode', $tresponse->getAuthCode() );
 
 			} else {
-				error_log( __FUNCTION__ . ' ' . "Charge Credit Card ERROR :  Invalid response" );
+				error_log( __CLASS__ . '::' . __FUNCTION__ . ' ' . "ERROR: Charge Credit Card ERROR :  Invalid response" );
 			}
 
 		} else {
-			error_log( __FUNCTION__ . ' ' . "Charge Credit card Null response returned" );
+			error_log( __CLASS__ . '::' . __FUNCTION__  . ' ' . "ERROR: Charge Credit card Null response returned" );
 		}
 
 		$this->purchase_log->save();
@@ -548,13 +553,11 @@ define ( 'AUTHORIZENET_SANDBOX', false );
 
 	private function force_two_decimals( $amount ) {
 		$amount = round( (float) $amount, 2 );
-
 		return $amount;
 	}
 
 	private function set_purchaselog_status( $status ) {
 		$this->purchase_log->set( 'processed', $status );
-
 		return $this;
 	}
 }
