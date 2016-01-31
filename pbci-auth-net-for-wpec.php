@@ -38,6 +38,6 @@ Author URI: https://profiles.wordpress.org/jeffpyebrookcom/
 add_action( 'wpsc_after_register_gateways', 'pbci_auth_register_gateway_file' );
 
 function pbci_auth_register_gateway_file( $gateway_controller ) {
-	$gateway_file = dirname( __FILE__ ) . '/Authorize_Net_Gateway.php';
+	$gateway_file = dirname( __FILE__ ) . '/Authorize_Net_Credit_Card.php';
 	WPSC_Payment_Gateways::register_file( $gateway_file );
 }
