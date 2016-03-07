@@ -91,11 +91,21 @@ class WPSC_Payment_Gateway_Authorize_Net_Credit_Card extends WPSC_Payment_Gatewa
 		if ( isset( $_REQUEST['auth_net'] ) ) {
 			$card_data = $_REQUEST['auth_net'];
 
-			// $this->name_on_card           = $card_data['name_on_card'];
-			$this->card_number            = $this->digits_and_spaces_only( $card_data['card_number'] );
-			$this->expiration_month       = $this->digits_and_spaces_only( $card_data['expiry']['month'] );
-			$this->expiration_year        = $this->digits_and_spaces_only( $card_data['expiry']['year'] );
-			$this->card_verification_code = $this->digits_and_spaces_only( $card_data['card_code'] );
+			if ( isset( $card_data['card_number'] ) ) {
+				$this->card_number = $this->digits_and_spaces_only( $card_data['card_number'] );
+			}
+
+			if ( isset( $card_data['expiry']['month'] ) ) {
+				$this->expiration_month = $this->digits_and_spaces_only( $card_data['expiry']['month'] );
+			}
+
+			if ( isset( $card_data['expiry']['year']  ) ) {
+				$this->expiration_year = $this->digits_and_spaces_only( $card_data['expiry']['year'] );
+			}
+
+			if ( isset( $card_data['card_code'] ) ) {
+				$this->card_verification_code = $this->digits_and_spaces_only( $card_data['card_code'] );
+			}
 		}
 	}
 
