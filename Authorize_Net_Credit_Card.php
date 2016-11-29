@@ -555,9 +555,18 @@ define ( 'AUTHORIZENET_SANDBOX', false );
 				// get the transaction response error messages
 				$transaction_errors = $tresponse->getErrors();
 
-				foreach ( $transaction_errors as $transaction_error ) {
-					$messages[] = $transaction_error->getErrorText();
-				}
+				if ( is_array( $transaction_errors ) ) {
+					foreach ( $transaction_errors as $transaction_error ) {
+						$messages[] = $transaction_error->getErrorText();
+					}
+				} else {
+					error_log( __CLASS__ . '::' . __FUNCTION__ . '::' . __LINE__ . ' "WARNING: transaction errors are not an array?' );
+					if ( NULL === $transaction_errors ) {
+						error_log( '$transaction_errors is NULL' );
+                    } else {
+						error_log( '$transaction_errors is ' . var_export( $transaction_errors, true ) );
+                    }
+                }
 
 				wpsc_update_customer_meta( 'checkout_misc_error_messages', $messages );
 
